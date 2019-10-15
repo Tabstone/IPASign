@@ -13,8 +13,6 @@ using System.Data;
 using System.Drawing;
 using System.IO;
 using System.Windows.Forms;
-using Org.BouncyCastle.Pkcs;
-using Org.BouncyCastle.X509;
 using IPALibrary;
 
 namespace IPASign
@@ -87,42 +85,14 @@ namespace IPASign
             }
 
             IPAFile ipaFile = new IPAFile(ipaStream);
-            ValidateIPA(ipaFile, signingCertificateBytes, certificatePassword);
-        }
-
-        private void ValidateIPA(IPAFile ipaFile, byte[] signingCertificateBytes, string certificatePassword)
-        {
-            AsymmetricKeyEntry privateKey;
-            X509Certificate signingCertificate = CertificateHelper.GetCertificateAndKeyFromBytes(signingCertificateBytes, certificatePassword, out privateKey);
-            if (signingCertificate == null)
-            {
-                MessageBox.Show("Failed to parse the given signing certificate", "Error");
-                return;
-            }
-
-            bool isValid;
-            try
-            {
-                isValid = ipaFile.ValidateExecutableSignature(signingCertificate);
-            }
-            catch (Org.BouncyCastle.Security.Certificates.CertificateExpiredException)
-            {
-                MessageBox.Show("Certificate is outdated", "Error");
-                return;
-            }
-            catch (Org.BouncyCastle.Security.Certificates.CertificateNotYetValidException)
-            {
-                MessageBox.Show("Certificate is outdated", "Error");
-                return;
-            }
-
-            if (isValid)
+            var msg = ipaFile.ValidateIPA(signingCertificateBytes, certificatePassword);
+            if (msg == "Success")
             {
                 MessageBox.Show("Signature is valid", "Success");
             }
             else
             {
-                MessageBox.Show("Signature is invalid", "Error");
+                MessageBox.Show(msg, "Error");
             }
         }
 

@@ -349,6 +349,39 @@ namespace IPALibrary
             return string.Empty;
         }
 
+        public string ValidateIPA(byte[] signingCertificateBytes, string certificatePassword)
+        {
+            AsymmetricKeyEntry privateKey;
+            X509Certificate signingCertificate = CertificateHelper.GetCertificateAndKeyFromBytes(signingCertificateBytes, certificatePassword, out privateKey);
+            if (signingCertificate == null)
+            {
+                return "Failed to parse the given signing certificate";
+            }
+
+            bool isValid;
+            try
+            {
+                isValid = this.ValidateExecutableSignature(signingCertificate);
+            }
+            catch (Org.BouncyCastle.Security.Certificates.CertificateExpiredException)
+            {
+                return "Certificate is outdated";
+            }
+            catch (Org.BouncyCastle.Security.Certificates.CertificateNotYetValidException)
+            {
+                return "Certificate is outdated";
+            }
+
+            if (isValid)
+            {
+                return "success";
+            }
+            else
+            {
+                return "Signature is invalid";
+            }
+        }
+
         private static string GetCertificatesPath()
         {
             string assemblyPath = System.Reflection.Assembly.GetExecutingAssembly().Location;

@@ -37,9 +37,9 @@
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="BouncyCastle, Version=1.8.5.0, Culture=neutral, PublicKeyToken=0e99375e54769942">
+    <Reference Include="BouncyCastle.Crypto, Version=1.8.5.0, Culture=neutral, PublicKeyToken=0e99375e54769942">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>Components\BouncyCastle.dll</HintPath>
+      <HintPath>Components\BouncyCastle.Crypto.dll</HintPath>
     </Reference>
     <Reference Include="ICSharpCode.SharpZipLib, Version=1.2.0.246, Culture=neutral, PublicKeyToken=1b03e6acf1164f73, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
@@ -119,9 +119,8 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="Components\BouncyCastle.dll" />
-    <Content Include="Components\PListNet.dll" />
-    <Content Include="Components\System.Core.dll" />
+    <Content Include="Components\BouncyCastle.Crypto.dll" />
+    <Content Include="Components\ICSharpCode.SharpZipLib.dll" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\PListNet\PListNet.csproj">
