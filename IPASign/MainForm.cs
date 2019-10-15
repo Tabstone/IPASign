@@ -179,115 +179,27 @@ namespace IPASign
             {
                 string outputIPAPath = saveIPADialog.FileName;
                 IPAFile ipaFile = new IPAFile(ipaStream);
-                ResignIPA(ipaFile, mobileProvisionBytes, signingCertificateBytes, certificatePassword, outputIPAPath);
-            }
-        }
-
-        private void ResignIPA(IPAFile ipaFile, byte[] mobileProvisionBytes, byte[] signingCertificateBytes, string certificatePassword, string outputIPAPath)
-        {
-            // Validate that the mobileprovision match the given certificate
-            MobileProvisionFile mobileProvision;
-            if (mobileProvisionBytes == null)
-            {
-                mobileProvision = ipaFile.GetMobileProvision();
-            }
-            else
-            {
-                mobileProvision = new MobileProvisionFile(mobileProvisionBytes);
-            }
-
-            List<byte[]> developerCertificates = mobileProvision.PList.DeveloperCertificates;
-            if (developerCertificates.Count == 0)
-            {
-                MessageBox.Show("Mobile Provision does not contain developer certificate information", "Error");
-                return;
-            }
-
-            AsymmetricKeyEntry privateKey;
-            X509Certificate signingCertificate = CertificateHelper.GetCertificateAndKeyFromBytes(signingCertificateBytes, certificatePassword, out privateKey);
-            if (signingCertificate == null)
-            {
-                MessageBox.Show("Failed to parse the given signing certificate", "Error");
-                return;
-            }
-
-            bool foundMatchingCertificate = false;
-            for (int index = 0; index < developerCertificates.Count; index++)
-            {
-                X509Certificate provisionedCertificate = CertificateHelper.GetCertificatesFromBytes(developerCertificates[index]);
-                if (provisionedCertificate.Equals(signingCertificate))
+                try
                 {
-                    foundMatchingCertificate = true;
+                    var msg = ipaFile.ResignIPA(mobileProvisionBytes, signingCertificateBytes, certificatePassword, outputIPAPath);
+                    if (!string.IsNullOrEmpty(msg))
+                    {
+                        MessageBox.Show(msg, "Error");
+                    }
+                    else
+                    {
+
+                        MessageBox.Show("Done!");
+                    }
                 }
-            }
+                catch (IOException ex)
+                {
+                    MessageBox.Show("Failed to save output IPA: " + ex.Message, "Error");
+                    return;
+                }
 
-            if (!foundMatchingCertificate)
-            {
-                MessageBox.Show("The signing certificate given does not match any specified in the Mobile Provision file", "Error");
-                return;
             }
-
-            List<X509Certificate> certificateStore;
-            try
-            {
-                certificateStore = ReadCertificatesDirectory();
-            }
-            catch
-            {
-                MessageBox.Show("Failed to read certificate directory", "Error");
-                return;
-            }
-            
-            List<X509Certificate> certificateChain = CertificateHelper.BuildCertificateChain(signingCertificate, certificateStore);
-
-            if (mobileProvisionBytes != null)
-            {
-                ipaFile.ReplaceMobileProvision(mobileProvisionBytes);
-            }
-
-            if (ipaFile.HasFrameworksFolder)
-            {
-                MessageBox.Show("Signing an IPA containing a framework is not supported", "Not supported");
-                return;
-            }
-
-            ipaFile.ResignIPA(certificateChain, privateKey);
-            try
-            {
-                ipaFile.Save(outputIPAPath);
-            }
-            catch (IOException ex)
-            {
-                MessageBox.Show("Failed to save output IPA: " + ex.Message, "Error");
-                return;
-            }
-
-            MessageBox.Show("Done!");
         }
-
-        private static string GetCertificatesPath()
-        {
-            string assemblyPath = System.Reflection.Assembly.GetExecutingAssembly().Location;
-            string assemblyDirectory = Path.GetDirectoryName(assemblyPath);
-            if (!assemblyDirectory.EndsWith(@"\"))
-            {
-                assemblyDirectory += @"\";
-            }
-            return assemblyDirectory + @"Certificates\";
-        }
-
-        private static List<X509Certificate> ReadCertificatesDirectory()
-        {
-            List<X509Certificate> certificates = new List<X509Certificate>();
-            string certificatesPath = GetCertificatesPath();
-            string[] files = Directory.GetFiles(certificatesPath, "*.cer");
-            foreach (string filePath in files)
-            {
-                byte[] fileBytes = File.ReadAllBytes(filePath);
-                X509Certificate certificate = CertificateHelper.GetCertificatesFromBytes(fileBytes);
-                certificates.Add(certificate);
-            }
-            return certificates;
-        }
+      
     }
 }

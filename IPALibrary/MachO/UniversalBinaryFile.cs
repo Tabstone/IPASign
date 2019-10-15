@@ -74,7 +74,7 @@ namespace IPALibrary.MachO
                 fatArch.Size = (uint)file.Length;
                 fatArch.WriteBytes(buffer, FatHeader.Length + index * FatArch.Length);
                 file.WriteBytes(buffer, nextObjectOffset);
-                nextObjectOffset += file.Length;
+                nextObjectOffset += (int)fatArch.Size;
             }
             return buffer;
         }

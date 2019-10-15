@@ -6,17 +6,14 @@
  * 
  * Maintainer: Tal Aloni <tal@kmrom.com>
  */
+using ICSharpCode.SharpZipLib.Zip;
+using IPALibrary.CodeSignature;
+using IPALibrary.MachO;
+using Org.BouncyCastle.Pkcs;
+using Org.BouncyCastle.X509;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using ICSharpCode.SharpZipLib.Core;
-using ICSharpCode.SharpZipLib.Zip;
-using ICSharpCode.SharpZipLib.Zip.Compression;
-using ICSharpCode.SharpZipLib.Zip.Compression.Streams;
-using Org.BouncyCastle.Pkcs;
-using Org.BouncyCastle.X509;
-using IPALibrary.CodeSignature;
-using IPALibrary.MachO;
 using Utilities;
 
 namespace IPALibrary
@@ -28,9 +25,11 @@ namespace IPALibrary
         public const string CodeResourcesFilePath = "_CodeSignature/CodeResources";
         public const char ZipDirectorySeparator = '/';
 
+        private string m_appDirectoryPath;
         private MemoryStream m_stream = new MemoryStream();
         private ZipFile m_zipFile;
-        private string m_appDirectoryPath;
+
+        private Dictionary<string, byte[]> m_updateFile;
 
         public IPAFile(Stream stream)
         {
@@ -39,7 +38,8 @@ namespace IPALibrary
 
             m_zipFile = new ZipFile(m_stream);
             m_appDirectoryPath = GetAppDirectoryPath();
-            if (m_appDirectoryPath == null)
+
+            if (string.IsNullOrEmpty(m_appDirectoryPath))
             {
                 throw new InvalidDataException("Invalid directory structure for IPA file");
             }
@@ -47,10 +47,26 @@ namespace IPALibrary
 
         public void Save(string path)
         {
-            m_stream.Position = 0;
-            FileStream fileStream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None);
-            ByteUtils.CopyStream(m_stream, fileStream);
-            fileStream.Close();
+            using (var outStream = new ZipOutputStream(File.Create(path)))
+            {
+                foreach (ZipEntry entry in m_zipFile)
+                {
+                    if (entry.IsFile)
+                    {
+                        outStream.PutNextEntry(new ZipEntry(entry.Name));
+                        if (m_updateFile.TryGetValue(entry.Name, out byte[] data))
+                        {
+                            outStream.Write(data, 0, data.Length);
+                        }
+                        else
+                        {
+                            Stream sourceStream = m_zipFile.GetInputStream(entry);
+                            sourceStream.CopyTo(outStream);
+                        }
+                    }
+                }
+                m_updateFile.Clear();
+            }
         }
 
         private void Close()
@@ -60,28 +76,19 @@ namespace IPALibrary
 
         private string GetAppDirectoryPath()
         {
-            List<ZipEntry> payloadEntries = new List<ZipEntry>();
             foreach (ZipEntry entry in m_zipFile)
             {
-                if (entry.IsDirectory)
+                var name = entry.Name;
+                if (name.EndsWith(ZipDirectorySeparator + MobileProvisionFileName) && name.StartsWith("Payload" + ZipDirectorySeparator))
                 {
-                    if (entry.Name.StartsWith("Payload" + ZipDirectorySeparator) && entry.Name.Length > 8)
+                    string subPath = name.Substring(0, name.Length - MobileProvisionFileName.Length - 1).Substring(8);
+                    if (subPath.IndexOf(ZipDirectorySeparator) == -1)
                     {
-                        string subPath = entry.Name.Substring(8);
-                        subPath = subPath.TrimEnd(ZipDirectorySeparator);
-                        if (!subPath.Contains(ZipDirectorySeparator.ToString()))
-                        {
-                            payloadEntries.Add(entry);
-                        }
+                        return "Payload" + ZipDirectorySeparator + subPath + ZipDirectorySeparator;
                     }
                 }
             }
-
-            if (payloadEntries.Count != 1)
-            {
-                throw new InvalidDataException("Invalid directory structure for IPA file");
-            }
-            return payloadEntries[0].Name;
+            throw new InvalidDataException("Invalid directory structure for IPA file");
         }
 
         public MemoryStream GetFileStream(string path)
@@ -198,58 +205,55 @@ namespace IPALibrary
 
         public void ReplaceMobileProvision(byte[] mobileProvisionBytes)
         {
-            m_zipFile.BeginUpdate();
-            MemoryStreamDataSource mobileProvisionDataSource = new MemoryStreamDataSource(mobileProvisionBytes);
-            m_zipFile.Add(mobileProvisionDataSource, m_appDirectoryPath + MobileProvisionFileName);
+            this.m_updateFile[m_appDirectoryPath + MobileProvisionFileName] = mobileProvisionBytes;
             
             CodeResourcesFile codeResources = GetCodeResourcesFile();
             codeResources.UpdateFileHash(MobileProvisionFileName, mobileProvisionBytes);
 
             MobileProvisionFile mobileProvision = new MobileProvisionFile(mobileProvisionBytes);
-            string provisionedBundleIdentifier = mobileProvision.PList.Entitlements.BundleIdentifier;
-            if (provisionedBundleIdentifier != GetBundleIdentifier())
+            string bundleId = mobileProvision.PList.Entitlements.BundleIdentifier;
+            if (bundleId != GetBundleIdentifier())
             {
                 // We must update the info.plist's CFBundleIdentifier to match the one from the mobile provision
                 InfoFile infoFile = GetInfoFile();
-                infoFile.BundleIdentifier = provisionedBundleIdentifier;
+                infoFile.BundleIdentifier = bundleId;
                 byte[] infoBytes = infoFile.GetBytes();
-                MemoryStreamDataSource infoDataSource = new MemoryStreamDataSource(infoBytes);
-                m_zipFile.Add(infoDataSource, m_appDirectoryPath + InfoFileName);
-
+                this.m_updateFile[m_appDirectoryPath + InfoFileName] = infoBytes;
                 codeResources.UpdateFileHash(InfoFileName, infoBytes);
             }
 
             byte[] codeResourcesBytes = codeResources.GetBytes();
-            MemoryStreamDataSource codeResourcesDataSource = new MemoryStreamDataSource(codeResourcesBytes);
-            m_zipFile.Add(codeResourcesDataSource, m_appDirectoryPath + CodeResourcesFilePath);
-
-            m_zipFile.CommitUpdate();
+            this.m_updateFile[m_appDirectoryPath + CodeResourcesFilePath] = codeResourcesBytes;
         }
 
-        private void ReplaceExecutable(byte[] executableBytes)
+
+        public void ResignIPA(List<X509Certificate> certificateChain, AsymmetricKeyEntry privateKey, MobileProvisionFile mobileProvision)
         {
-            m_zipFile.BeginUpdate();
-            MemoryStreamDataSource executableDataSource = new MemoryStreamDataSource(executableBytes);
+            //MobileProvisionFile mobileProvision = GetMobileProvision();
+            string bundleId = mobileProvision.PList.Entitlements.BundleIdentifier;
+            byte[] infoFileBytes;
+            if (m_updateFile.TryGetValue(m_appDirectoryPath + InfoFileName, out infoFileBytes) == false)
+            {
+                infoFileBytes = GetInfoFileBytes();
+            }
+            byte[] codeResourcesBytes;
+            if (m_updateFile.TryGetValue(m_appDirectoryPath + CodeResourcesFilePath, out codeResourcesBytes) == false)
+            {
+                codeResourcesBytes = GetCodeResourcesBytes();
+            }
+            byte[] buffer;
             string executableName = GetExecutableName();
-            m_zipFile.Add(executableDataSource, m_appDirectoryPath + executableName);
-            m_zipFile.CommitUpdate();
-        }
-
-        public void ResignIPA(List<X509Certificate> certificateChain, AsymmetricKeyEntry privateKey)
-        {
-            MobileProvisionFile mobileProvision = GetMobileProvision();
-            byte[] buffer = GetExecutableBytes();
-            string bundleIdentifier = GetBundleIdentifier();
-            byte[] infoFileBytes = GetInfoFileBytes();
-            byte[] codeResourcesBytes = GetCodeResourcesBytes();
+            if (m_updateFile.TryGetValue(m_appDirectoryPath + executableName, out buffer) == false)
+            {
+                buffer = GetFileBytes(executableName);
+            }
             List<MachObjectFile> files = MachObjectHelper.ReadMachObjects(buffer);
             foreach (MachObjectFile file in files)
             {
-                CodeSignatureHelper.ResignExecutable(file, bundleIdentifier, certificateChain, privateKey, infoFileBytes, codeResourcesBytes, mobileProvision.PList.Entitlements);
+                CodeSignatureHelper.ResignExecutable(file, bundleId, certificateChain, privateKey, infoFileBytes, codeResourcesBytes, mobileProvision.PList.Entitlements);
             }
             byte[] executableBytes = MachObjectHelper.PackMachObjects(files);
-
-            ReplaceExecutable(executableBytes);
+            this.m_updateFile[m_appDirectoryPath + executableName] = executableBytes;
         }
 
         public bool ContainsFolder(string folderPath)
@@ -273,6 +277,101 @@ namespace IPALibrary
             {
                 return ContainsFolder("Frameworks");
             }
+        }
+
+        public string ResignIPA(byte[] mobileProvisionBytes, byte[] signingCertificateBytes, string certificatePassword, string outputIPAPath)
+        {
+            this.m_updateFile = new Dictionary<string, byte[]>();
+
+            // Validate that the mobileprovision match the given certificate
+            MobileProvisionFile mobileProvision;
+            if (mobileProvisionBytes == null)
+            {
+                mobileProvision = this.GetMobileProvision();
+            }
+            else
+            {
+                mobileProvision = new MobileProvisionFile(mobileProvisionBytes);
+            }
+
+            List<byte[]> developerCertificates = mobileProvision.PList.DeveloperCertificates;
+            if (developerCertificates.Count == 0)
+            {
+                return "Mobile Provision does not contain developer certificate information";
+            }
+
+            AsymmetricKeyEntry privateKey;
+            X509Certificate signingCertificate = CertificateHelper.GetCertificateAndKeyFromBytes(signingCertificateBytes, certificatePassword, out privateKey);
+            if (signingCertificate == null)
+            {
+                return "Failed to parse the given signing certificate";
+            }
+
+            bool foundMatchingCertificate = false;
+            for (int index = 0; index < developerCertificates.Count; index++)
+            {
+                X509Certificate provisionedCertificate = CertificateHelper.GetCertificatesFromBytes(developerCertificates[index]);
+                if (provisionedCertificate.Equals(signingCertificate))
+                {
+                    foundMatchingCertificate = true;
+                }
+            }
+
+            if (!foundMatchingCertificate)
+            {
+                return "The signing certificate given does not match any specified in the Mobile Provision file";
+            }
+
+            List<X509Certificate> certificateStore;
+            try
+            {
+                certificateStore = ReadCertificatesDirectory();
+            }
+            catch
+            {
+                return "Failed to read certificate directory";
+            }
+
+            List<X509Certificate> certificateChain = CertificateHelper.BuildCertificateChain(signingCertificate, certificateStore);
+
+            if (mobileProvisionBytes != null)
+            {
+                this.ReplaceMobileProvision(mobileProvisionBytes);
+            }
+
+            if (this.HasFrameworksFolder)
+            {
+                return "Signing an IPA containing a framework is not supported";
+            }
+
+            this.ResignIPA(certificateChain, privateKey, mobileProvision);
+            this.Save(outputIPAPath);
+            return string.Empty;
+        }
+
+        private static string GetCertificatesPath()
+        {
+            string assemblyPath = System.Reflection.Assembly.GetExecutingAssembly().Location;
+            string assemblyDirectory = Path.GetDirectoryName(assemblyPath);
+            if (!assemblyDirectory.EndsWith(@"\"))
+            {
+                assemblyDirectory += @"\";
+            }
+            return assemblyDirectory + @"Certificates\";
+        }
+
+        private static List<X509Certificate> ReadCertificatesDirectory()
+        {
+            List<X509Certificate> certificates = new List<X509Certificate>();
+            string certificatesPath = GetCertificatesPath();
+            string[] files = Directory.GetFiles(certificatesPath, "*.cer");
+            foreach (string filePath in files)
+            {
+                byte[] fileBytes = File.ReadAllBytes(filePath);
+                X509Certificate certificate = CertificateHelper.GetCertificatesFromBytes(fileBytes);
+                certificates.Add(certificate);
+            }
+            return certificates;
         }
     }
 }
