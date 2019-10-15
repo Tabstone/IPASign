@@ -1,11 +1,15 @@
 ﻿
-Microsoft Visual Studio Solution File, Format Version 9.00
-# Visual Studio 2005
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29324.140
+MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IPASign", "IPASign\IPASign.csproj", "{5C21815D-04CA-4F7C-886F-63E32E5DB754}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IPALibrary", "IPALibrary\IPALibrary.csproj", "{F6143BA3-9C76-4C0A-87B9-98014CB02F26}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Utilities", "Utilities\Utilities.csproj", "{D89261E5-9611-4A9E-8F23-31AE0BD196AC}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PListNet", "PListNet\PListNet.csproj", "{D5F4E38B-0849-4EBB-881C-740D6256CDC0}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -25,8 +29,15 @@ Global
 		{D89261E5-9611-4A9E-8F23-31AE0BD196AC}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D89261E5-9611-4A9E-8F23-31AE0BD196AC}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D89261E5-9611-4A9E-8F23-31AE0BD196AC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D5F4E38B-0849-4EBB-881C-740D6256CDC0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D5F4E38B-0849-4EBB-881C-740D6256CDC0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D5F4E38B-0849-4EBB-881C-740D6256CDC0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D5F4E38B-0849-4EBB-881C-740D6256CDC0}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {83144BD0-12B5-4141-96EB-A25B5116C62D}
 	EndGlobalSection
 EndGlobal

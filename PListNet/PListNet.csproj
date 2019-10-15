@@ -1,0 +1,76 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{D5F4E38B-0849-4EBB-881C-740D6256CDC0}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <RootNamespace>PListNet</RootNamespace>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <TargetFrameworkProfile />
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <Prefer32Bit>false</Prefer32Bit>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup>
+    <StartupObject />
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System.Core">
+      <HintPath>..\IPALibrary\Components\System.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <AppDesigner Include="Properties\" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Internal\BinaryFormatReader.cs" />
+    <Compile Include="Internal\BinaryFormatWriter.cs" />
+    <Compile Include="Internal\EndianConverter.cs" />
+    <Compile Include="Internal\NodeFactory.cs" />
+    <Compile Include="Internal\XmlFormatReader.cs" />
+    <Compile Include="Nodes\ArrayNode.cs" />
+    <Compile Include="Nodes\BooleanNode.cs" />
+    <Compile Include="Nodes\DataNode.cs" />
+    <Compile Include="Nodes\DateNode.cs" />
+    <Compile Include="Nodes\DictionaryNode.cs" />
+    <Compile Include="Nodes\FillNode.cs" />
+    <Compile Include="Nodes\IntegerNode.cs" />
+    <Compile Include="Nodes\NullNode.cs" />
+    <Compile Include="Nodes\RealNode.cs" />
+    <Compile Include="Nodes\StringNode.cs" />
+    <Compile Include="Nodes\UidNode.cs" />
+    <Compile Include="PList.cs" />
+    <Compile Include="PListFormat.cs" />
+    <Compile Include="PListFormatException.cs" />
+    <Compile Include="PNode.2.cs" />
+    <Compile Include="PNode.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="app.config" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>
